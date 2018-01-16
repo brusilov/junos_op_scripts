@@ -1,0 +1,68 @@
+version 1.1;
+
+ns junos = "http://xml.juniper.net/junos/*/junos";
+ns xnm = "http://xml.juniper.net/xnm/1.1/xnm";
+ns jcs = "http://xml.juniper.net/junos/commit-scripts/1.0";
+
+import "../import/junos.xsl";
+
+match / {
+	<op-script-output> {
+		var $interface-information = <get-interface-information> {
+			<extensive>;
+			}
+		var $rpc = jcs:invoke($interface-information);
+		mvar $interface-name;
+		mvar $interface-admin-status;
+		mvar $interface-oper-status;
+		mvar $interface-input-bps;
+		mvar $interface-output-bps;
+		mvar $interface-duplex;
+		mvar $interface-speed;
+		mvar $interface-input-errors;
+		mvar $interface-description;
+		mvar $logical-interface-name;
+		mvar $logical-interface-description;
+
+		<output> jcs:printf("%-15s %10s %10s %12s %12s %14s %14s %10s %16s", "Interface", "Admin", "Oper", "Speed", "Duplex", "In Mbit/s", "Out Mbit/s", "In errors", "Description");
+		for-each ($rpc/physical-interface) {
+			set $interface-name = name;
+			set $interface-admin-status = admin-status;
+			set $interface-oper-status = oper-status;
+			set $interface-description = description;
+			if (admin-status == "up" && oper-status == "up") {
+				for-each (input-error-list) {
+					set $interface-input-errors = input-errors;
+				}
+				for-each (traffic-statistics) {
+					set $interface-input-bps = input-bps;
+					set $interface-output-bps = output-bps;
+				}
+				for-each (ethernet-autonegotiation/local-info) {
+					set $interface-duplex = local-link-duplexity;
+					set $interface-speed = local-link-speed;
+				}
+			}
+			else {
+				set $interface-input-errors = "-";
+				set $interface-input-bps = "-";
+				set $interface-output-bps = "-";
+				set $interface-duplex = "-";
+				set $interface-speed = "-";
+			}
+			if (jcs:regex ( "(^ge-|^xe-|^ae|^et-)", $interface-name )) {
+				<output> jcs:printf("%-15s %10s %10s %12s %12s %14.4f %14.4f %10s %16s", $interface-name, $interface-admin-status, $interface-oper-status, $interface-speed, $interface-duplex, $interface-input-bps div 1000000, $interface-output-bps div 1000000, $interface-input-errors, $interface-description);
+			}
+			for-each (logical-interface) {
+				set $logical-interface-name = name;
+				set $logical-interface-description = description;
+				set $interface-input-bps = "-";
+				set $interface-output-bps = "-";
+				set $interface-input-errors = "-";
+				if ( (jcs:regex ( "(^ge-|^xe-|^ae|^et-)", $logical-interface-name )) and not (jcs:regex ( "\.[0-9]{5,}$", $logical-interface-name )) ) {
+					<output> jcs:printf("%-15s %10s %10s %12s %12s %14.4f %14.4f %10s %16s", $logical-interface-name, $interface-admin-status, $interface-oper-status, $interface-speed, $interface-duplex, $interface-input-bps div 1000000, $interface-output-bps div 1000000, $interface-input-errors, $logical-interface-description);
+				}
+			}
+		}
+	}
+}
