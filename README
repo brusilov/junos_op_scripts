@@ -1,4 +1,4 @@
-## Install
+Install
 
 file copy ftp://server.example.local/show-interfaces.slax /var/db/scripts/op/
 set system scripts op file show-interfaces.slax
