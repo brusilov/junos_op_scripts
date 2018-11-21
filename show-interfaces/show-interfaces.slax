@@ -51,7 +51,7 @@ match / {
 				set $interface-speed = "-";
 			}
 			if (jcs:regex ( "(^ge-|^xe-|^ae|^et-)", $interface-name )) {
-				<output> jcs:printf("%-15s %10s %10s %12s %12s %14.4f %14.4f %10s %16s", $interface-name, $interface-admin-status, $interface-oper-status, $interface-speed, $interface-duplex, $interface-input-bps div 1000000, $interface-output-bps div 1000000, $interface-input-errors, $interface-description);
+				<output> jcs:printf("%-15s %10s %10s %12s %12s %14.5f %14.5f %10s %16s", $interface-name, $interface-admin-status, $interface-oper-status, $interface-speed, $interface-duplex, $interface-input-bps div 1000000, $interface-output-bps div 1000000, $interface-input-errors, $interface-description);
 			}
 			for-each (logical-interface) {
 				set $logical-interface-name = name;
@@ -62,7 +62,7 @@ match / {
 				set $interface-duplex = "-";
 				set $interface-speed = "-";
 				if ( (jcs:regex ( "(^ge-|^xe-|^ae|^et-)", $logical-interface-name )) and not (jcs:regex ( "\.[0-9]{5,}$", $logical-interface-name )) ) {
-					<output> jcs:printf("%-15s %10s %10s %12s %12s %14.4f %14.4f %10s %16s", $logical-interface-name, $interface-admin-status, $interface-oper-status, $interface-speed, $interface-duplex, $interface-input-bps, $interface-output-bps, $interface-input-errors, $logical-interface-description);
+					<output> jcs:printf("%-15s %10s %10s %12s %12s %14.5f %14.5f %10s %16s", $logical-interface-name, $interface-admin-status, $interface-oper-status, $interface-speed, $interface-duplex, $interface-input-bps, $interface-output-bps, $interface-input-errors, $logical-interface-description);
 				}
 			}
 		}
