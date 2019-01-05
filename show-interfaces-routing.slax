@@ -1,0 +1,48 @@
+version 1.0;
+
+ns junos = "http://xml.juniper.net/junos/*/junos";
+ns xnm = "http://xml.juniper.net/xnm/1.1/xnm";
+ns jcs = "http://xml.juniper.net/junos/commit-scripts/1.0";
+
+import "../import/junos.xsl";
+
+var $arguments = {
+        <argument> {
+        <name> "family";
+        <description> "family name";
+        }
+}
+
+param $family = "inet";
+
+match / {
+        <op-script-output> {
+        var $interface-information = <get-interface-information>;
+        var $rpc = jcs:invoke($interface-information);
+        if ( $family == 'inet' or $family == 'inet6') {
+                <output> jcs:printf("%-15s %-10s %-10s %-10s %-30s %-25s %-20s", "Name", "MTU", "BW", "State", "IP address(es)", "Network/Mask", "Description");
+                for-each ($rpc/physical-interface/logical-interface) {
+                        var $admin-status = {
+                                if (../name == "lo0") {
+                                        expr "Up";
+                                        } else if (if-config-flags/iff-up) {
+                                                expr "Up";
+                                        } else {
+                                                expr "Down";
+                                                }
+                                }
+                        for-each(address-family[address-family-name = $family]/interface-address) {
+                                if (ifa-flags/ifaf-current-primary) {
+                                                <output> jcs:printf("%-15s %-10s %-10s %-10s %-30s %-25s %-20s", ../../name, ../mtu, ../../logical-interface-bandwidth, $admin-status, ifa-local, ifa-destination, ../../description);
+                                }
+                                else if (not(ifa-flags/ifaf-current-primary)) {
+                                        <output> jcs:printf("-%-14s %-10s %-10s %-10s %-30s %-25s %-20s", ../../name, ../mtu, ../../logical-interface-bandwidth, $admin-status, ifa-local, ifa-destination, ../../description);
+                                }
+                        }
+                }
+        } else {
+                <output> "Not valid family name. Enter inet or inet6.";
+                }
+    }
+}
+

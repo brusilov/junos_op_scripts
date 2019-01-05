@@ -1,0 +1,75 @@
+version 1.1;
+
+ns junos = "http://xml.juniper.net/junos/*/junos";
+ns xnm = "http://xml.juniper.net/xnm/1.1/xnm";
+ns jcs = "http://xml.juniper.net/junos/commit-scripts/1.0";
+
+import "../import/junos.xsl";
+
+match / {
+        <op-script-output> {
+                var $interface-information = <get-interface-information> {
+                        <extensive>;
+                        }
+                var $rpc = jcs:invoke($interface-information);
+                mvar $interface-name;
+                mvar $interface-admin-status;
+                mvar $interface-oper-status;
+                mvar $interface-input-bps;
+                mvar $interface-output-bps;
+                mvar $interface-speed;
+                mvar $interface-media-type;
+                                mvar $interface-local-index;
+                                mvar $interface-ifindex;
+                mvar $interface-output-drops;
+                mvar $interface-description;
+                mvar $logical-interface-name;
+                mvar $logical-interface-description;
+
+                <output> jcs:printf("%-15s %10s %10s %12s %12s %12s %14s %14s %10s %16s", "Interface", "Admin", "Oper", "Speed", "Type", "Local/Ifindex", "In Mbit/s", "Out Mbit/s", "Out drops", "Description");
+                for-each ($rpc/physical-interface) {
+                        set $interface-name = name;
+                        set $interface-admin-status = admin-status;
+                        set $interface-oper-status = oper-status;
+                                                set $interface-local-index = local-index;
+                                                set $interface-ifindex = snmp-index;
+                        set $interface-description = description;
+                        set $interface-speed = speed;
+                        set $interface-media-type = if-media-type;
+                        if (admin-status == "up" && oper-status == "up") {
+                                for-each (output-error-list) {
+                                        set $interface-output-drops = output-drops;
+                                }
+                                for-each (traffic-statistics) {
+                                        set $interface-input-bps = input-bps;
+                                        set $interface-output-bps = output-bps;
+                                }
+                        }
+                        else {
+                                set $interface-output-drops = "-";
+                                set $interface-input-bps = "-";
+                                set $interface-output-bps = "-";
+                                set $interface-speed = "-";
+                                set $interface-media-type = "-";
+                        }
+                        if (jcs:regex ( "(^ge-|^xe-|^ae|^et-)", $interface-name )) {
+                                <output> jcs:printf("%-15s %10s %10s %12s %12s %6s/%-6s %14.5f %14.5f %10s %16s", $interface-name, $interface-admin-status, $interface-oper-status, $interface-speed, $interface-media-type, $interface-local-index, $interface-ifindex, $interface-input-bps div 1000000, $interface-output-bps div 1000000, $interface-output-drops, $interface-description);
+                        }
+                        for-each (logical-interface) {
+                                set $logical-interface-name = name;
+                                set $logical-interface-description = description;
+                                set $interface-input-bps = "-";
+                                set $interface-output-bps = "-";
+                                set $interface-output-drops = "-";
+                                set $interface-media-type = "-";
+                                set $interface-speed = "-";
+                                                                set $interface-local-index = "-";
+                                                                set $interface-ifindex = "-";
+                                if ( (jcs:regex ( "(^ge-|^xe-|^ae|^et-)", $logical-interface-name )) and not (jcs:regex ( "\.[0-9]{5,}$", $logical-interface-name )) ) {
+                                        <output> jcs:printf("%-15s %10s %10s %12s %12s %6s/%-6s %14.5f %14.5f %10s %16s", $logical-interface-name, $interface-admin-status, $interface-oper-status, $interface-speed, $interface-media-type, $interface-local-index, $interface-ifindex, $interface-input-bps, $interface-output-bps, $interface-output-drops, $logical-interface-description);
+                                }
+                        }
+                }
+        }
+}
+

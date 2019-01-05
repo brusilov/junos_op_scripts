@@ -1,0 +1,58 @@
+version 1.1;
+
+ns junos = "http://xml.juniper.net/junos/*/junos";
+ns xnm = "http://xml.juniper.net/xnm/1.1/xnm";
+ns jcs = "http://xml.juniper.net/junos/commit-scripts/1.0";
+
+import "../import/junos.xsl";
+
+match / {
+        <op-script-output> {
+                var $bgp-neighbor-information = <get-bgp-neighbor-information>;
+                var $rpc = jcs:invoke($bgp-neighbor-information);
+                mvar $peer-address;
+                mvar $peer-as;
+                mvar $peer-group;
+                mvar $peer-type;
+                mvar $peer-state;
+                mvar $local-interface-name;
+                mvar $active-prefix-count;
+                mvar $received-prefix-count;
+                mvar $accepted-prefix-count;
+                mvar $suppressed-prefix-count;
+                mvar $advertised-prefix-count;
+                mvar $bgp-output-queue-count;
+
+                <output> jcs:printf("%-30s %-20s %-10s %-10s %-10s %-10s %s/%s/%s/%s|%-30s %s", "Peer", "Group", "AS", "Type", "IfName", "OutQ", "Rcvd", "Accept", "Supp", "Active", "Adv", "State");
+                for-each ($rpc/bgp-peer) {
+                set $peer-address = peer-address;
+                set $peer-as = peer-as;
+                set $peer-group = peer-group;
+                set $peer-type = peer-type;
+                set $peer-state = peer-state;
+                set $local-interface-name = local-interface-name;
+                if (peer-state == "Established") {
+                    for-each (bgp-rib) {
+                        set $active-prefix-count = active-prefix-count;
+                        set $received-prefix-count = received-prefix-count;
+                        set $accepted-prefix-count = accepted-prefix-count;
+                        set $suppressed-prefix-count = suppressed-prefix-count;
+                        set $advertised-prefix-count = advertised-prefix-count;
+                        }
+                        }
+                    else {
+                        set $active-prefix-count = '-';
+                        set $received-prefix-count = '-';
+                        set $accepted-prefix-count = '-';
+                        set $suppressed-prefix-count = '-';
+                        set $advertised-prefix-count = '-';
+                    }
+                    for-each (bgp-output-queue) {
+                        set $bgp-output-queue-count = count;
+                    }
+                    <output> jcs:printf("%-30s %-20s %-10s %-10s %-10s %-10s %s/%s/%s/%s|%-30s %s", $peer-address, $peer-group, $peer-as, $peer-type, $local-interface-name, $bgp-output-queue-count, $received-prefix-count, $accepted-prefix-count, $suppressed-prefix-count, $active-prefix-count, $advertised-prefix-count, $peer-state);
+                }
+
+        }
+}
+

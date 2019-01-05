@@ -1,0 +1,87 @@
+version 1.0;
+ns junos = "http://xml.juniper.net/junos/*/junos";
+ns xnm = "http://xml.juniper.net/xnm/1.1/xnm";
+ns jcs = "http://xml.juniper.net/junos/commit-scripts/1.0";
+ns str = "http://exslt.org/strings";
+import "../import/junos.xsl";
+
+
+
+var $arguments = {
+  <argument> {
+    <name> "deactivate-uplinks";
+    <description> "all bgp uplinks deactivation";
+  }
+  }
+
+param $deactivate-uplinks = "none";
+
+
+match / {
+        <op-script-results> {
+                var $user-name =  jcs:input( "Enter your username: " ) ;
+                if ($user-name != $user or $deactivate-uplinks != "all") {
+                        expr jcs:output("Script terminated without config change.");
+                } else {
+                /* JUNOS XML API Element to retrieve the configuration */
+                        var $config-rpc =  <get-configuration database="committed" inherit="inherit"> {
+                                                <configuration> {
+                                                <protocols> {
+                                                <bgp>;
+                                                }
+                                        }
+                                }
+                        /* Request configuration and assign to $config variable */
+                        var $config = jcs:invoke( $config-rpc );
+
+                        /* Extract the name-servers from the config and assign to variable */
+                        var $bgp-groups-config = $config/protocols/bgp/group;
+
+                        var $bgp-groups := {
+                                <configuration> {
+                                        <protocols> {
+                                                <bgp> {
+                                                        for-each($bgp-groups-config[name != 'CORE1' and type == 'external']) {
+                                                                <group inactive=inactive> {
+                                                                <name> name ;
+                                                                }
+                                                        }
+                                                }
+                                        }
+                                }
+                        }
+
+                        var $bgp-groups2 := {   for-each($bgp-groups-config[name != 'CORE1' and type == 'external']) {
+                                <output> " " _ name;
+                                }
+                        }
+
+                        var $deactivated-uplinks-list = str:split(normalize-space($bgp-groups2), " ");
+                        expr jcs:output("Following groups will be deactivated:");
+                        for-each( $deactivated-uplinks-list ) {
+                                expr jcs:output(.);
+                        }
+
+                        var $user-response = jcs:input( "Continue? [Yes/No] " );
+                        if ($user-response == 'Yes') {
+                                <output> "Use following commands to activate them:";
+                                for-each( $deactivated-uplinks-list ) {
+                                        <output> "activate protocols bgp group " _ .;
+                                }
+
+                                var $connection = jcs:open();
+                                var $results := { call jcs:load-configuration( $connection, $configuration = $bgp-groups); }
+
+                                if( $results//xnm:error ) {
+                                        for-each( $results//xnm:error ) {
+                                                <output> message;
+                                        }
+                                }
+
+                        } else {
+                                expr jcs:output("Script aborted without config change.");
+                        }
+                }
+        }
+}
+
