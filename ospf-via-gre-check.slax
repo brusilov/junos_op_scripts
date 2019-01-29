@@ -1,0 +1,21 @@
+version 1.0;
+ns junos = "http://xml.juniper.net/junos/*/junos";
+ns xnm = "http://xml.juniper.net/xnm/1.1/xnm";
+ns jcs = "http://xml.juniper.net/junos/commit-scripts/1.0";
+import "../import/junos.xsl";
+
+
+match configuration {
+	for-each(interfaces/interface[ starts-with( name, "gr-" ) ]/unit) {
+		var $ifname = ../name _ "." _ name;
+		if (not(../../../policy-options/policy-statement[name == "OSPF-kernel"]/term[name == "10"]/from[interface == normalize-space($ifname)]))
+			{
+			<xnm:error> {
+				<message> {
+					expr "This interface is not added to the OSPF-kernel policy-statement term 10:";
+					expr $ifname;
+				}
+			}
+		}
+	}
+}
