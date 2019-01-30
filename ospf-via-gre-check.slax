@@ -8,11 +8,11 @@ import "../import/junos.xsl";
 match configuration {
 	for-each(interfaces/interface[ starts-with( name, "gr-" ) ]/unit) {
 		var $ifname = ../name _ "." _ name;
-		if (not(../../../policy-options/policy-statement[name == "OSPF-kernel"]/term[name == "10"]/from[interface == normalize-space($ifname)]))
+		if (not(../../../policy-options/policy-statement[name == "OSPF-kernel"]/term[name == "10"]/from[interface == normalize-space($ifname)]) and (../../../protocols/ospf/area[name == *]/interface[name == normalize-space($ifname)]))
 			{
 			<xnm:error> {
 				<message> {
-					expr "This interface is not added to the OSPF-kernel policy-statement term 10:";
+					expr "This interface is OSPF enabled but not added to the OSPF-kernel policy-statement: ";
 					expr $ifname;
 				}
 			}
