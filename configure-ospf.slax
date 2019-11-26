@@ -1,0 +1,125 @@
+version 1.0;
+
+ns junos = "http://xml.juniper.net/junos/*/junos";
+ns xnm = "http://xml.juniper.net/xnm/1.1/xnm";
+ns jcs = "http://xml.juniper.net/junos/commit-scripts/1.0";
+ns str = "http://exslt.org/strings";
+import "../import/junos.xsl";
+
+var $arguments = {
+    <argument> {
+        <name> "gre-passive";
+        <description> "on or off passive knob on gre in ospf area 0";
+    }
+}
+
+            
+var $config-rpc = <get-configuration database="committed" inherit="inherit"> {
+                    <configuration> {
+                        <protocols> {
+                            <ospf>;
+                        }
+                    }
+                }
+
+match / {
+    <op-script-results> {
+        var $user-name =  jcs:input( "Enter your username: " ) ;
+        if ($user-name != $user) {
+            terminate "wrong username";
+        }
+        
+        var $options := {
+                <commit-options> {
+                <log> "delete all gre interfaces passive by " _ $user-name;
+                }
+            }
+            
+        if ($gre-passive == "on") {
+            var $connection = jcs:open();
+            var $system-configuration = jcs:execute($connection, $config-rpc);          
+            var $ospf-config = $system-configuration/protocols/ospf/area;
+            var $ospf-ifl-list := {
+                for-each ($ospf-config[name == "0.0.0.0"]/interface[starts-with(name, "gr-") and jcs:empty(passive)]) {
+                    <interface> {
+                    <name> ./name;
+                    <passive>;
+                    }
+                }
+            }
+
+            if (jcs:empty($ospf-ifl-list)) {
+                expr jcs:close($connection);
+                terminate "nothing to commit";
+            }
+
+            var $ospf-config-new := <configuration> {
+                <protocols> {
+                    <ospf> {
+                        <area> {
+                        <name> "0.0.0.0";
+                        copy-of $ospf-ifl-list;
+                        }
+                    }
+                }
+            }
+            
+/*          var $connection = jcs:open(); */
+            var $results := {
+                call jcs:load-configuration($connection , $commit-options=$options, $configuration = $ospf-config-new, $action="merge");
+            }
+            expr jcs:close($connection);
+            
+            if ($results//xnm:error) {
+                for-each ($results//xnm:error) {
+                    <output> message;
+                }
+            }
+        } 
+        else if ($gre-passive == "off") {
+            var $connection = jcs:open();
+            var $system-configuration = jcs:execute($connection, $config-rpc);
+            var $ospf-config = $system-configuration/protocols/ospf/area;
+            var $ospf-ifl-list := {
+                for-each ($ospf-config[name == "0.0.0.0"]/interface[starts-with(name, "gr-") and not(jcs:empty(passive))]) {
+                    <interface> {
+                    <name> ./name;
+                    <passive delete="delete">;
+                    }
+                }
+            }
+
+            if (jcs:empty($ospf-ifl-list)) {
+                expr jcs:close($connection);
+                terminate "nothing to commit";
+            }
+
+            var $ospf-config-new := <configuration> {
+                <protocols> {
+                    <ospf> {
+                        <area> {
+                        <name> "0.0.0.0";
+                        copy-of $ospf-ifl-list;
+                        }
+                    }
+                }
+            }
+
+/*          var $connection = jcs:open(); */
+            var $results := {
+                call jcs:load-configuration($connection , $commit-options=$options, $configuration = $ospf-config-new, $action="merge");
+            }
+            expr jcs:close($connection);
+            
+            if ($results//xnm:error) {
+                for-each ($results//xnm:error) {
+                    <output> message;
+                }
+            }
+        } 
+        else {
+            expr jcs:output("wrong param value");
+        }
+    }   
+}
+    
